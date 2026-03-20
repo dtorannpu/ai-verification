@@ -1,10 +1,18 @@
 services:
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    networks:
+      - sample-network
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
     networks:
       - sample-network
   backend:
