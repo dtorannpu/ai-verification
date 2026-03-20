@@ -5,9 +5,15 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
+    networks:
+      - sample-network
   backend:
     build:
       context: ./backend-py
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    networks:
+      - sample-network
+
+networks:
+  sample-network:
+    driver: bridge
