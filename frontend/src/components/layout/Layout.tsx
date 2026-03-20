@@ -4,10 +4,17 @@ import Footer from "@/components/Footer";
 
 export default function Layout() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        padding: "16px",
+      }}
+    >
       <Header />
 
-      <main style={{ flex: 1, overflow: "auto" }}>
+      <main style={{ flex: 1, minHeight: 0 }}>
         <Outlet />
       </main>
 
