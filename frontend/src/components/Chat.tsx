@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { streamChatCompletion } from "@/api";
 
 type Role = "user" | "ai";
 
@@ -19,22 +20,76 @@ const INITIAL_MESSAGES: Message[] = [
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = () => {
-    const text = input.trim();
-    if (!text) return;
+  useEffect(() => {
+    return () => {
+      streamAbortRef.current?.abort();
+    };
+  }, []);
 
-    setMessages((prev) => [...prev, { id: Date.now(), role: "user", text }]);
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || isStreaming) return;
+
+    streamAbortRef.current?.abort();
+    const abortController = new AbortController();
+    streamAbortRef.current = abortController;
+
+    const userMessageId = Date.now();
+    const aiMessageId = userMessageId + 1;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: userMessageId, role: "user", text },
+      { id: aiMessageId, role: "ai", text: "" },
+    ]);
     setInput("");
+    setIsStreaming(true);
 
     if (textareaRef.current) {
       textareaRef.current.style.height = "40px";
+    }
+
+    try {
+      await streamChatCompletion(
+        { message: text },
+        {
+          signal: abortController.signal,
+          onDelta: (delta) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessageId ? { ...msg, text: msg.text + delta } : msg,
+              ),
+            );
+          },
+        },
+      );
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      const errorText =
+        error instanceof Error
+          ? `エラーが発生しました: ${error.message}`
+          : "エラーが発生しました";
+
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === aiMessageId ? { ...msg, text: errorText } : msg)),
+      );
+    } finally {
+      setIsStreaming(false);
+      if (streamAbortRef.current === abortController) {
+        streamAbortRef.current = null;
+      }
     }
   };
 
@@ -104,7 +159,7 @@ export default function Chat() {
           style={styles.textarea}
         />
         <button onClick={sendMessage} style={styles.sendButton}>
-          送信
+          {isStreaming ? "受信中..." : "送信"}
         </button>
       </div>
     </div>
